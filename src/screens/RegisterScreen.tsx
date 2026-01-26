@@ -11,6 +11,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 import { colors } from "../theme/colors";
+import { showSuccess, showError } from "../utils/toast";
 
 export default function RegisterScreen({ navigation }: any) {
   const [name, setName] = useState("");
@@ -38,10 +39,11 @@ export default function RegisterScreen({ navigation }: any) {
         role: "user",
         createdAt: new Date(),
       });
-
+      
+      showSuccess("Account created successfully ☕");
       navigation.replace("Home");
     } catch (error: any) {
-      Alert.alert("Registration Error", error.message);
+      showError(error.message);
     }
   };
 

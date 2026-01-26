@@ -10,6 +10,7 @@ import {
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { colors } from "../theme/colors";
+import { showSuccess, showError } from "../utils/toast";
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
@@ -18,10 +19,11 @@ export default function LoginScreen({ navigation }: any) {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      showSuccess("Logged in successfully ☕");
       navigation.replace("Home");
     } catch (error: any) {
         console.log(error);
-      Alert.alert("Login Failed", error.message);
+      showError("Invalid login details");
     }
   };
 
