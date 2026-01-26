@@ -1,61 +1,109 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
-  FlatList,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
+  Alert,
+  Linking,
 } from "react-native";
-import { useCart } from "../context/CartContext";
 import { colors } from "../theme/colors";
-import { showSuccess } from "../utils/toast";
+import { useCart } from "../context/CartContext";
+import { auth, db } from "../config/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export default function CheckoutScreen({ navigation }: any) {
   const { cart, getTotal, clearCart } = useCart();
-  const [address, setAddress] = useState(""); // Default: user profile address
-  const [cardNumber, setCardNumber] = useState(""); // For demo only
+  const [address, setAddress] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
 
-  const handlePlaceOrder = () => {
-    if (!address || !cardNumber) {
-      alert("Please enter your address and card number");
+  useEffect(() => {
+    // Load default address & card from Firebase if user exists
+    const loadUserProfile = async () => {
+      if (!auth.currentUser) return;
+      const docRef = collection(db, "users");
+      const snapshot = await docRef.doc(auth.currentUser.uid).get();
+      if (snapshot.exists) {
+        const data = snapshot.data();
+        setAddress(data.address || "");
+        setCardName(data.cardName || "");
+        setCardNumber(data.cardNumber || "");
+        setCardExpiry(data.cardExpiry || "");
+        setCardCvv(data.cardCvv || "");
+      }
+    };
+    loadUserProfile();
+  }, []);
+
+  const handlePayment = async () => {
+    if (!address || !cardName || !cardNumber || !cardExpiry || !cardCvv) {
+      Alert.alert("Incomplete Info", "Please complete address & card info.");
       return;
     }
 
-    // For demo, just show success
-    showSuccess("Order placed successfully! ☕");
-    clearCart();
-    navigation.navigate("HomeTab");
-  };
+    try {
+      // 1️⃣ Simulate payment through PayFast sandbox
+      const merchant_id = "10000100";
+      const merchant_key = "46f0cd694581a";
+      const amount = getTotal().toFixed(2);
+      const item_name = encodeURIComponent("Cozy Cup Order");
+      const return_url = encodeURIComponent(
+        "https://www.payfast.co.za/eng/process",
+      );
 
-  const renderItem = ({ item }: any) => (
-    <View style={styles.itemContainer}>
-      <Text style={styles.itemName}>
-        {item.name} x {item.quantity}
-      </Text>
-      {item.side && <Text style={styles.itemOption}>Side: {item.side}</Text>}
-      {item.drink && <Text style={styles.itemOption}>Drink: {item.drink}</Text>}
-      {item.extras && item.extras.length > 0 && (
-        <Text style={styles.itemOption}>Extras: {item.extras.join(", ")}</Text>
-      )}
-      <Text style={styles.itemPrice}>R{item.price * item.quantity}</Text>
-    </View>
-  );
+      const payFastUrl = `https://sandbox.payfast.co.za/eng/process?merchant_id=${merchant_id}&merchant_key=${merchant_key}&amount=${amount}&item_name=${item_name}&return_url=${return_url}`;
+
+      await Linking.openURL(payFastUrl);
+
+      // 2️⃣ Save order in Firebase
+      if (auth.currentUser) {
+        const order = {
+          userId: auth.currentUser.uid,
+          items: cart,
+          totalAmount: getTotal(),
+          address,
+          cardInfo: "**** **** **** " + cardNumber.slice(-4),
+          paymentStatus: "paid", // ideally verify via PayFast IPN
+          createdAt: serverTimestamp(),
+        };
+
+        await addDoc(collection(db, "orders"), order);
+      }
+
+      // 3️⃣ Clear cart & navigate
+      clearCart();
+      Alert.alert("Success", "Order placed successfully ☕");
+      navigation.navigate("HomeTab");
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Payment Error", "Could not process payment.");
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.header}>Checkout</Text>
+      <Text style={styles.header}>Checkout ☕</Text>
 
       <Text style={styles.sectionTitle}>Delivery Address</Text>
       <TextInput
         style={styles.input}
-        placeholder="Enter your address"
+        placeholder="Address"
         value={address}
         onChangeText={setAddress}
       />
 
-      <Text style={styles.sectionTitle}>Payment Details</Text>
+      <Text style={styles.sectionTitle}>Card Info</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Name on Card"
+        value={cardName}
+        onChangeText={setCardName}
+      />
       <TextInput
         style={styles.input}
         placeholder="Card Number"
@@ -63,76 +111,84 @@ export default function CheckoutScreen({ navigation }: any) {
         onChangeText={setCardNumber}
         keyboardType="numeric"
       />
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <TextInput
+          style={[styles.input, { flex: 1, marginRight: 8 }]}
+          placeholder="MM/YY"
+          value={cardExpiry}
+          onChangeText={setCardExpiry}
+        />
+        <TextInput
+          style={[styles.input, { flex: 1 }]}
+          placeholder="CVV"
+          value={cardCvv}
+          onChangeText={setCardCvv}
+          keyboardType="numeric"
+        />
+      </View>
 
       <Text style={styles.sectionTitle}>Order Summary</Text>
-      <FlatList
-        data={cart}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 20 }}
-      />
+      {cart.map((item) => (
+        <View key={item.id} style={styles.summaryItem}>
+          <Text style={styles.summaryName}>
+            {item.name} x {item.quantity}
+          </Text>
+          <Text style={styles.summaryPrice}>
+            R{(item.price * item.quantity).toFixed(2)}
+          </Text>
+        </View>
+      ))}
+      <Text style={styles.total}>Total: R{getTotal().toFixed(2)}</Text>
 
-      <Text style={styles.total}>Total: R{getTotal()}</Text>
-
-      <TouchableOpacity
-        style={styles.placeOrderButton}
-        onPress={handlePlaceOrder}
-      >
-        <Text style={styles.placeOrderText}>Place Order</Text>
+      <TouchableOpacity style={styles.payButton} onPress={handlePayment}>
+        <Text style={styles.payButtonText}>Pay & Place Order ☕</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background, padding: 16 },
   header: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "700",
     color: colors.primary,
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     marginTop: 12,
     marginBottom: 6,
   },
   input: {
     backgroundColor: colors.light,
+    padding: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
     marginBottom: 12,
     color: colors.text,
   },
-  itemContainer: {
-    padding: 12,
-    backgroundColor: colors.light,
-    borderRadius: 12,
-    marginBottom: 8,
+  summaryItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
   },
-  itemName: { fontSize: 16, fontWeight: "700", color: colors.primary },
-  itemOption: { fontSize: 14, color: colors.textSecondary },
-  itemPrice: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.primary,
-    marginTop: 4,
-  },
+  summaryName: { fontSize: 16, color: colors.dark },
+  summaryPrice: { fontSize: 16, fontWeight: "600", color: colors.primary },
   total: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
+    marginVertical: 12,
     color: colors.primary,
-    marginTop: 12,
   },
-  placeOrderButton: {
+  payButton: {
     backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 12,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 16,
   },
-  placeOrderText: { color: colors.light, fontSize: 16, fontWeight: "700" },
+  payButtonText: { color: colors.light, fontWeight: "700", fontSize: 16 },
 });
