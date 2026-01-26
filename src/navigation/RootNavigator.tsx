@@ -14,8 +14,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="App" component={AppTabs} />
       <Stack.Screen name="ViewItem" component={ViewItemScreen} />
-      // If inside stack navigator
-      <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      {/* <Stack.Screen name="Checkout" component={CheckoutScreen} /> */}
     </Stack.Navigator>
   );
 }
