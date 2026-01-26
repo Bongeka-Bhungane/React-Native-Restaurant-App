@@ -72,11 +72,7 @@ export default function HomeScreen({ navigation }: any) {
         renderItem={({ item }) => (
           <FoodItemCard
             item={item}
-            onPress={() =>
-              navigation.navigate("Items", {
-                subCategory: item,
-              })
-            }
+            onPress={() => navigation.navigate("ViewItem", { item })}
           />
         )}
         showsVerticalScrollIndicator={false}

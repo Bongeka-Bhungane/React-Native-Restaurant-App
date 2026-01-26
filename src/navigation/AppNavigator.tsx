@@ -1,21 +1,18 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer } from "@react-navigation/native";
 import HomeScreen from "../screens/HomeScreen";
-import CategoryScreen from "../screens/CategoryScreen";
-// import ItemsScreen from "../screens/ItemsScreen";
-// import CartScreen from "../screens/CartScreen";
-// import ProfileScreen from "../screens/ProfileScreen";
+import ViewItemScreen from "../screens/ViewItemScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import { colors } from "../theme/colors";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import CheckoutScreen from "../screens/CheckoutScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Bottom Tabs for main app screens
+// Bottom Tabs
 function AppTabs() {
   return (
     <Tab.Navigator
@@ -36,46 +33,30 @@ function AppTabs() {
           ),
         }}
       />
-      {/* <Tab.Screen
-        name="CartTab"
-        component={CartScreen}
-        options={{
-          title: "Cart",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart" color={color} size={size} />
-          ),
-        }}
-      /> */}
-      {/* <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" color={color} size={size} />
-          ),
-        }}
-      /> */}
     </Tab.Navigator>
   );
 }
 
-// Root Stack Navigator (Auth + App)
+// Root Stack (NO NavigationContainer here)
 export default function AppNavigator() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* Auth screens */}
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {/* Auth */}
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
 
-        {/* Main App */}
-        <Stack.Screen name="App" component={AppTabs} />
+      {/* Main App */}
+      <Stack.Screen name="App" component={AppTabs} />
 
-        {/* Menu navigation */}
-        <Stack.Screen name="Category" component={CategoryScreen} />
-        {/* <Stack.Screen name="Items" component={ItemsScreen} /> */}
-      </Stack.Navigator>
-    </NavigationContainer>
+      {/* Menu */}
+      <Stack.Screen
+        name="ViewItem"
+        component={ViewItemScreen}
+        options={{ title: "Item Details" }}
+      />
+
+     
+      
+    </Stack.Navigator>
   );
 }

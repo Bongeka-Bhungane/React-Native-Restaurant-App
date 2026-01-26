@@ -9,4 +9,5 @@ export const colors = {
   textSecondary: "#7D7D7D",
   border: "#E6E1DA",
   danger: "#D9534F",
+  white: "#FFFFFF",
 };

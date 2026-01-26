@@ -32,3 +32,4 @@ export const popularItems = [
     image: "https://images.pexels.com/photos/4057552/pexels-photo-4057552.jpeg",
   },
 ];
+
