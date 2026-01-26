@@ -10,7 +10,7 @@ import { colors } from "../theme/colors";
 import { useCart } from "../context/CartContext";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
-export default function CartScreen() {
+export default function CartScreen({ navigation }: any) {
   const { cart, removeFromCart, updateQuantity, clearCart, getTotal } =
     useCart();
 
@@ -64,9 +64,13 @@ export default function CartScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.total}>Total: R{getTotal()}</Text>
-            <TouchableOpacity style={styles.checkoutButton}>
+            <TouchableOpacity
+              style={styles.checkoutButton}
+              onPress={() => navigation.navigate("Checkout")}
+            >
               <Text style={styles.checkoutText}>Go to Checkout</Text>
             </TouchableOpacity>
+
             <TouchableOpacity onPress={clearCart} style={styles.clearButton}>
               <Text style={styles.clearText}>Clear Cart</Text>
             </TouchableOpacity>

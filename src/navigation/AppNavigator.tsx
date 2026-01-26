@@ -41,22 +41,16 @@ function AppTabs() {
 export default function AppNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Auth */}
+      {/* Auth screens */}
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
 
       {/* Main App */}
       <Stack.Screen name="App" component={AppTabs} />
 
-      {/* Menu */}
-      <Stack.Screen
-        name="ViewItem"
-        component={ViewItemScreen}
-        options={{ title: "Item Details" }}
-      />
-
-     
-      
+      {/* Menu navigation */}
+      {/* <Stack.Screen name="Category" component={CategoryScreen} /> */}
+      <Stack.Screen name="ViewItem" component={ViewItemScreen} />
     </Stack.Navigator>
   );
 }

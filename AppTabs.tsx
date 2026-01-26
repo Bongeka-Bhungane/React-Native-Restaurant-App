@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import HomeScreen from "./src/screens/HomeScreen";
 import CartScreen from "./src/screens/CartScreen";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import CheckoutScreen from "./src/screens/CheckoutScreen";
 // import ProfileScreen from "./src/screens/";
 
 const Tab = createBottomTabNavigator();
@@ -20,6 +21,8 @@ export default function AppTabs() {
           ),
         }}
       />
+      <Tab.Screen name="Checkout" component={CheckoutScreen} />
+
       {/* <Tab.Screen name="ProfileTab" component={ProfileScreen} /> */}
     </Tab.Navigator>
   );
