@@ -16,16 +16,19 @@ export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      showSuccess("Logged in successfully ☕");
-      navigation.replace("Home");
-    } catch (error: any) {
-        console.log(error);
-      showError("Invalid login details");
-    }
-  };
+ const handleLogin = async () => {
+   try {
+     await signInWithEmailAndPassword(auth, email, password);
+     showSuccess("Logged in successfully ☕");
+
+     // Navigate to the App's bottom tabs after login
+     navigation.replace("App", { screen: "HomeTab" });
+   } catch (error: any) {
+     console.log(error);
+     showError("Invalid login details");
+   }
+ };
+
 
   return (
     <View style={styles.container}>
