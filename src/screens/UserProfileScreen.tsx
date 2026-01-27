@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   FlatList,
+  Alert,
 } from "react-native";
 import { auth, db } from "../config/firebase";
 import {
@@ -18,8 +19,12 @@ import {
   where,
   getDocs,
   orderBy,
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { colors } from "../theme/colors";
+import { startPayFastPayment } from "../utils/payfast";
+
 
 export default function UserProfileScreen({ navigation }: any) {
   const [name, setName] = useState("");
@@ -33,48 +38,51 @@ export default function UserProfileScreen({ navigation }: any) {
 
   const [orders, setOrders] = useState<any[]>([]);
 
-  // Load profile
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!auth.currentUser) {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user) {
         navigation.navigate("Login");
         return;
       }
 
-      const docRef = doc(db, "users", auth.currentUser.uid);
-      const docSnap = await getDoc(docRef);
+      loadProfile(user.uid);
+    });
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setName(data.name || "");
-        setEmail(data.email || auth.currentUser.email || "");
-        setAddress(data.address || "");
-        setContactNumber(data.contactNumber || "");
-        setCardName(data.cardName || "");
-        setCardNumber(data.cardNumber || "");
-        setCardExpiry(data.cardExpiry || "");
-        setCardCvv(data.cardCvv || "");
-      } else {
-        setEmail(auth.currentUser.email || "");
-      }
-
-      // Load user orders
-      const ordersRef = collection(db, "orders");
-      const q = query(
-        ordersRef,
-        where("userId", "==", auth.currentUser.uid),
-        orderBy("createdAt", "desc"),
-      );
-      const querySnap = await getDocs(q);
-      const fetchedOrders: any[] = [];
-      querySnap.forEach((doc) =>
-        fetchedOrders.push({ id: doc.id, ...doc.data() }),
-      );
-      setOrders(fetchedOrders);
-    };
-
-    loadProfile();
+    return unsubscribe;
   }, []);
+
+  const loadProfile = async (uid: string) => {
+    const docRef = doc(db, "users", uid);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      setName(data.name || "");
+      setEmail(data.email || "");
+      setAddress(data.address || "");
+      setContactNumber(data.contactNumber || "");
+      setCardName(data.cardName || "");
+      setCardNumber(data.cardNumber || "");
+      setCardExpiry(data.cardExpiry || "");
+      setCardCvv(data.cardCvv || "");
+    }
+
+    await fetchOrders(uid);
+  };
+
+  const fetchOrders = async (uid: string) => {
+    const ordersRef = collection(db, "orders");
+    const q = query(
+      ordersRef,
+      where("userId", "==", uid),
+      orderBy("createdAt", "desc"),
+    );
+
+    const snap = await getDocs(q);
+    setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  };
+
+
 
   const handleSave = async () => {
     if (!auth.currentUser) return;
@@ -102,22 +110,58 @@ export default function UserProfileScreen({ navigation }: any) {
     }
   };
 
-  const renderOrder = ({ item }: any) => (
-    <View style={styles.orderCard}>
-      <Text style={styles.orderId}>Order ID: {item.id}</Text>
-      <Text>
-        Date: {new Date(item.createdAt.seconds * 1000).toLocaleString()}
-      </Text>
-      <Text>Total: R{item.total}</Text>
-      <Text style={styles.orderItems}>Items:</Text>
-      {item.items.map((i: any) => (
-        <Text key={i.id}>
-          - {i.name} x{i.quantity}{" "}
-          {i.extras?.length ? `(${i.extras.join(", ")})` : ""}
-        </Text>
-      ))}
-    </View>
-  );
+const handlePayOrder = async (order: any) => {
+  try {
+    await startPayFastPayment({
+      amount: order.totalAmount,
+      orderId: order.id,
+    });
+
+    const orderRef = doc(db, "orders", order.id);
+    await updateDoc(orderRef, {
+      paymentStatus: "paid",
+      paidAt: serverTimestamp(),
+    });
+
+    Alert.alert("Payment Successful", "Your order has been paid.");
+
+    if (auth.currentUser) {
+      fetchOrders(auth.currentUser.uid); // ✅ FIX
+    }
+  } catch (error) {
+    Alert.alert("Payment Error", "Payment could not be completed.");
+  }
+};
+
+
+
+ const renderOrder = ({ item }: any) => (
+   <View style={styles.orderCard}>
+     <Text style={styles.orderId}>Order ID: {item.id}</Text>
+     <Text>
+       Date: {new Date(item.createdAt.seconds * 1000).toLocaleString()}
+     </Text>
+     <Text>Total: R{item.totalAmount}</Text>
+     <Text>Status: {item.paymentStatus}</Text>
+
+     <Text style={styles.orderItems}>Items:</Text>
+     {item.items.map((i: any) => (
+       <Text key={i.id}>
+         • {i.name} x{i.quantity}
+       </Text>
+     ))}
+
+     {item.paymentStatus !== "paid" && (
+       <TouchableOpacity
+         style={styles.payButton}
+         onPress={() => handlePayOrder(item)}
+       >
+         <Text style={styles.payButtonText}>Pay Now</Text>
+       </TouchableOpacity>
+     )}
+   </View>
+ );
+
 
   return (
     <ScrollView style={styles.container}>
@@ -194,7 +238,35 @@ export default function UserProfileScreen({ navigation }: any) {
         <FlatList
           data={orders}
           keyExtractor={(item) => item.id}
-          renderItem={renderOrder}
+          renderItem={({ item }) => (
+            <View style={styles.orderCard}>
+              <Text style={styles.orderDate}>
+                {item.createdAt?.toDate().toLocaleString()}
+              </Text>
+
+              <Text>Total: R{item.totalAmount}</Text>
+              <Text>Status: {item.paymentStatus}</Text>
+              <Text>Address: {item.address}</Text>
+              <Text>Card: {item.cardInfo}</Text>
+
+              <Text style={{ marginTop: 6, fontWeight: "700" }}>Items:</Text>
+              {item.items.map((i: any) => (
+                <Text key={i.id}>
+                  • {i.name} x{i.quantity}
+                </Text>
+              ))}
+
+              {/* 🔥 PAYFAST BUTTON */}
+              {item.paymentStatus !== "paid" && (
+                <TouchableOpacity
+                  style={styles.payButton}
+                  onPress={() => handlePayOrder(item)}
+                >
+                  <Text style={styles.payButtonText}>Pay Now (PayFast)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           contentContainerStyle={{ paddingBottom: 80 }}
         />
       )}
@@ -241,4 +313,16 @@ const styles = StyleSheet.create({
   },
   orderId: { fontWeight: "700", color: colors.primary },
   orderItems: { fontWeight: "600", marginTop: 4 },
+  payButton: {
+    backgroundColor: colors.primary,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  payButtonText: {
+    color: colors.light,
+    fontWeight: "700",
+  },
+  orderDate: { fontWeight: "600", marginBottom: 6 },
 });

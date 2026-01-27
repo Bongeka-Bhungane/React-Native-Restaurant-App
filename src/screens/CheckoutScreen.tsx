@@ -13,6 +13,8 @@ import { colors } from "../theme/colors";
 import { useCart } from "../context/CartContext";
 import { auth, db } from "../config/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+
 
 export default function CheckoutScreen({ navigation }: any) {
   const { cart, getTotal, clearCart } = useCart();
@@ -23,20 +25,30 @@ export default function CheckoutScreen({ navigation }: any) {
   const [cardCvv, setCardCvv] = useState("");
 
   useEffect(() => {
-    // Load default address & card from Firebase if user exists
     const loadUserProfile = async () => {
-      if (!auth.currentUser) return;
-      const docRef = collection(db, "users");
-      const snapshot = await docRef.doc(auth.currentUser.uid).get();
-      if (snapshot.exists) {
-        const data = snapshot.data();
-        setAddress(data.address || "");
-        setCardName(data.cardName || "");
-        setCardNumber(data.cardNumber || "");
-        setCardExpiry(data.cardExpiry || "");
-        setCardCvv(data.cardCvv || "");
+      if (!auth.currentUser) {
+        navigation.navigate("Login");
+        return;
+      }
+
+      try {
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+
+          setAddress(data.address || "");
+          setCardName(data.cardName || "");
+          setCardNumber(data.cardNumber || "");
+          setCardExpiry(data.cardExpiry || "");
+          setCardCvv(data.cardCvv || "");
+        }
+      } catch (error) {
+        console.log("Failed to load user profile:", error);
       }
     };
+
     loadUserProfile();
   }, []);
 
