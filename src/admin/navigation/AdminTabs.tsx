@@ -3,7 +3,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { colors } from "../../theme/colors";
 
 import AdminDashboardScreen from "../../admin/screens/AdminDashboardScreen";
-// import ManageMenuScreen from "../screens/admin/ManageMenuScreen";
+import ManageMenuScreen from "../../admin/screens/ManageMenuScreen";
 // import AdminOrdersScreen from "../screens/admin/AdminOrdersScreen";
 // import AdminProfileScreen from "../screens/admin/AdminProfileScreen";
 
@@ -28,8 +28,8 @@ export default function AdminTabs() {
       })}
     >
       <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
-      {/* <Tab.Screen name="Menu" component={ManageMenuScreen} />
-      <Tab.Screen name="Orders" component={AdminOrdersScreen} />
+      <Tab.Screen name="Menu" component={ManageMenuScreen} />
+      {/* <Tab.Screen name="Orders" component={AdminOrdersScreen} />
       <Tab.Screen name="Profile" component={AdminProfileScreen} /> */}
     </Tab.Navigator>
   );
