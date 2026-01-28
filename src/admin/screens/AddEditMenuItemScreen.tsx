@@ -18,11 +18,13 @@ import { db } from "../../config/firebase";
 import { colors } from "../../theme/colors";
 
 const CATEGORIES = [
+    "All",
   "Coffee",
   "Tea",
   "sandwiches and wraps",
   "Desserts",
   "Cold Drinks",
+  "extras",
 ];
 
 export default function AddEditMenuItemScreen({ route, navigation }: any) {

@@ -12,18 +12,13 @@ import { db } from "../config/firebase";
 import FoodItemCard from "../components/FoodItemCard";
 import { colors } from "../theme/colors";
 
-const categories = [
-  "Coffee",
-  "Tea",
-  "sandwiches and wraps",
-  "Desserts",
-  "Cold Drinks",
-];
-
 export default function HomeScreen({ navigation }: any) {
   const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<string[]>(["All"]);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [loading, setLoading] = useState(true);
+
+  console.log("🏠 HomeScreen mounted");
 
   useEffect(() => {
     const q = query(
@@ -33,15 +28,35 @@ export default function HomeScreen({ navigation }: any) {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const menu: any[] = [];
+      const categorySet = new Set<string>();
 
       snapshot.forEach((doc) => {
+        const data = doc.data();
+        const normalizedCategory = data.category
+          ?.toString()
+          .trim()
+          .toLowerCase();
+
         menu.push({
           id: doc.id,
-          ...doc.data(),
+          ...data,
+          category: normalizedCategory,
         });
+
+        if (normalizedCategory) {
+          categorySet.add(normalizedCategory);
+        }
       });
 
       setItems(menu);
+
+      setCategories([
+        "All",
+        ...Array.from(categorySet).map(
+          (c) => c.charAt(0).toUpperCase() + c.slice(1),
+        ),
+      ]);
+
       setLoading(false);
     });
 
@@ -53,10 +68,8 @@ export default function HomeScreen({ navigation }: any) {
       ? items
       : items.filter(
           (item) =>
-            item.category?.toLowerCase().trim() ===
-            selectedCategory.toLowerCase().trim(),
+            item.category === selectedCategory.toString().trim().toLowerCase(),
         );
-
 
   if (loading) {
     return (
@@ -71,7 +84,7 @@ export default function HomeScreen({ navigation }: any) {
       <Text style={styles.welcome}>Welcome to the Cozy Cup ☕</Text>
       <Text style={styles.header}>Menu</Text>
 
-      {/* Category Filter */}
+      {/* Categories */}
       <FlatList
         data={categories}
         horizontal
@@ -102,7 +115,7 @@ export default function HomeScreen({ navigation }: any) {
         )}
       />
 
-      {/* Menu Items */}
+      {/* Items */}
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => item.id}
