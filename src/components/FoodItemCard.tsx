@@ -1,50 +1,103 @@
-import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
+import { View, FlatList, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "../config/firebase";
 import { colors } from "../theme/colors";
 
-export default function FoodItemCard({ item, onPress }: any) {
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
-      <Image source={{ uri: item.image }} style={styles.image} />
-      <View style={styles.info}>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.description}>{item.description}</Text>
-        <Text style={styles.price}>R{item.price}</Text>
+export default function MenuScreen({ navigation }: any) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "menuItems"),
+      where("isAvailable", "==", true),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const menu: any[] = [];
+
+      snapshot.forEach((doc) => {
+        menu.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+
+      setItems(menu);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
-    </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+              data={items}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.card}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <Text>{item.category}</Text>
+                  <Text>R{item.price}</Text>
+      
+                  <View style={styles.actions}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate("AddEditMenu", { item })}
+                    >
+                      <Text style={styles.edit}>View more</Text>
+                    </TouchableOpacity>
+      
+                  </View>
+                </View>
+              )}
+            />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    backgroundColor: colors.light,
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  container: { flex: 1, padding: 16, backgroundColor: colors.background },
+  header: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: colors.primary,
+    marginBottom: 16,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    padding: 14,
     borderRadius: 12,
     marginBottom: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
+    alignItems: "center",
   },
-  image: {
-    width: 100,
-    height: 100,
+  addText: { color: colors.light, fontWeight: "700" },
+  card: {
+    backgroundColor: colors.light,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
   },
-  info: {
-    flex: 1,
-    padding: 12,
+  name: { fontWeight: "700", fontSize: 16 },
+  actions: {
+    flexDirection: "row",
     justifyContent: "space-between",
+    marginTop: 10,
   },
-  name: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  description: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.primary,
-  },
+  edit: { color: colors.primary, fontWeight: "600" },
+  delete: { color: colors.danger, fontWeight: "600" },
 });
