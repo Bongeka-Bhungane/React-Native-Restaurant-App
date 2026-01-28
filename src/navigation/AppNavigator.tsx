@@ -7,7 +7,7 @@ import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import { colors } from "../theme/colors";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import AdminTabs from "../admin/navigation/AdminTabs";
+import AdminNavigator from "../admin/navigation/AdminNavigator";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -52,7 +52,7 @@ export default function AppNavigator() {
       {/* <Stack.Screen name="Category" component={CategoryScreen} /> */}
       <Stack.Screen name="ViewItem" component={ViewItemScreen} />
 
-      <Stack.Screen name="AdminTabs" component={AdminTabs} />
+      <Stack.Screen name="AdminApp" component={AdminNavigator} />
     </Stack.Navigator>
   );
 }

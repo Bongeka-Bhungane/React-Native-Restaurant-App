@@ -4,6 +4,8 @@ import RegisterScreen from "../screens/RegisterScreen";
 import ViewItemScreen from "../screens/ViewItemScreen";
 import AppTabs from "../../AppTabs";
 import CheckoutScreen from "../screens/CheckoutScreen";
+import AdminNavigator from "../admin/navigation/AdminNavigator";
+import AdminTabs from "../admin/navigation/AdminTabs";
 
 const Stack = createNativeStackNavigator();
 
@@ -14,6 +16,9 @@ export default function RootNavigator() {
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="App" component={AppTabs} />
       <Stack.Screen name="ViewItem" component={ViewItemScreen} />
+      <Stack.Screen name="AdminApp" component={AdminNavigator} />
+      <Stack.Screen name="AdminTabs" component={AdminTabs} />
+
       {/* <Stack.Screen name="Checkout" component={CheckoutScreen} /> */}
     </Stack.Navigator>
   );
