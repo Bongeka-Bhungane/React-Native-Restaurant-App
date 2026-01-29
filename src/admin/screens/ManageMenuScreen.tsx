@@ -7,7 +7,13 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  deleteDoc,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { colors } from "../../theme/colors";
 
@@ -40,6 +46,18 @@ export default function ManageMenuScreen({ navigation }: any) {
     ]);
   };
 
+  const toggleAvailability = async (item: any) => {
+    await updateDoc(doc(db, "menuItems", item.id), {
+      isAvailable: !item.isAvailable,
+    });
+
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id ? { ...i, isAvailable: !item.isAvailable } : i,
+      ),
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Manage Menu 🍔</Text>
@@ -60,11 +78,26 @@ export default function ManageMenuScreen({ navigation }: any) {
             <Text>{item.category}</Text>
             <Text>R{item.price}</Text>
 
+            <Text
+              style={{
+                color: item.isAvailable ? "green" : colors.danger,
+                marginTop: 4,
+              }}
+            >
+              {item.isAvailable ? "Available" : "Unavailable"}
+            </Text>
+
             <View style={styles.actions}>
               <TouchableOpacity
                 onPress={() => navigation.navigate("AddEditMenu", { item })}
               >
                 <Text style={styles.edit}>Edit</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => toggleAvailability(item)}>
+                <Text style={styles.toggle}>
+                  {item.isAvailable ? "Disable" : "Enable"}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => deleteItem(item.id)}>
@@ -79,7 +112,11 @@ export default function ManageMenuScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.background },
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: colors.background,
+  },
   header: {
     fontSize: 24,
     fontWeight: "700",
@@ -93,19 +130,35 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     alignItems: "center",
   },
-  addText: { color: colors.light, fontWeight: "700" },
+  addText: {
+    color: colors.light,
+    fontWeight: "700",
+  },
   card: {
     backgroundColor: colors.light,
     padding: 14,
     borderRadius: 12,
     marginBottom: 12,
   },
-  name: { fontWeight: "700", fontSize: 16 },
+  name: {
+    fontWeight: "700",
+    fontSize: 16,
+  },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 10,
   },
-  edit: { color: colors.primary, fontWeight: "600" },
-  delete: { color: colors.danger, fontWeight: "600" },
+  edit: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  toggle: {
+    color: colors.accent,
+    fontWeight: "600",
+  },
+  delete: {
+    color: colors.danger,
+    fontWeight: "600",
+  },
 });

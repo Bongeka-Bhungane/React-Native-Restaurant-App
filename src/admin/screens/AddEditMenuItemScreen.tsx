@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Pressable,
+  Switch,
 } from "react-native";
 import {
   addDoc,
@@ -18,7 +19,6 @@ import { db } from "../../config/firebase";
 import { colors } from "../../theme/colors";
 
 const CATEGORIES = [
-    "All",
   "Coffee",
   "Tea",
   "sandwiches and wraps",
@@ -35,6 +35,8 @@ export default function AddEditMenuItemScreen({ route, navigation }: any) {
   const [description, setDescription] = useState(item?.description || "");
   const [price, setPrice] = useState(item?.price?.toString() || "");
   const [image, setImage] = useState(item?.image || "");
+  const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
+
   const [showCategories, setShowCategories] = useState(false);
 
   const saveItem = async () => {
@@ -46,8 +48,8 @@ export default function AddEditMenuItemScreen({ route, navigation }: any) {
       description,
       image,
       price: Number(price),
-      isAvailable: true,
-      createdAt: serverTimestamp(),
+      isAvailable,
+      createdAt: item ? item.createdAt : serverTimestamp(),
     };
 
     try {
@@ -123,6 +125,20 @@ export default function AddEditMenuItemScreen({ route, navigation }: any) {
         onChangeText={setImage}
       />
 
+      {/* AVAILABILITY TOGGLE */}
+      <View style={styles.toggleRow}>
+        <Text style={styles.label}>Available</Text>
+        <Switch
+          value={isAvailable}
+          onValueChange={setIsAvailable}
+          thumbColor={colors.light}
+          trackColor={{
+            false: colors.border,
+            true: colors.primary,
+          }}
+        />
+      </View>
+
       <TouchableOpacity style={styles.saveButton} onPress={saveItem}>
         <Text style={styles.saveText}>Save</Text>
       </TouchableOpacity>
@@ -136,20 +152,17 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: colors.background,
   },
-
   header: {
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 16,
     color: colors.primary,
   },
-
   label: {
     marginBottom: 6,
     fontWeight: "600",
     color: colors.text,
   },
-
   input: {
     backgroundColor: colors.light,
     borderRadius: 10,
@@ -159,7 +172,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: colors.text,
   },
-
   dropdown: {
     backgroundColor: colors.light,
     borderRadius: 10,
@@ -168,38 +180,36 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
-
   dropdownText: {
     color: colors.text,
   },
-
   dropdownList: {
     backgroundColor: colors.light,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 12,
-    overflow: "hidden",
   },
-
   dropdownItem: {
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-
   dropdownItemText: {
     color: colors.text,
   },
-
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   saveButton: {
     backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 12,
     alignItems: "center",
-    marginTop: 10,
   },
-
   saveText: {
     color: colors.light,
     fontWeight: "700",
