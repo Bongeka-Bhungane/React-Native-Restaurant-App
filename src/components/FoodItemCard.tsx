@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { View, FlatList, ActivityIndicator, StyleSheet, Image, Text, TouchableOpacity } from "react-native";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { colors } from "../theme/colors";
@@ -42,25 +42,30 @@ export default function MenuScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <FlatList
-              data={items}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={styles.card}>
-                  <Text style={styles.name}>{item.name}</Text>
-                  <Text>{item.category}</Text>
-                  <Text>R{item.price}</Text>
-      
-                  <View style={styles.actions}>
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate("AddEditMenu", { item })}
-                    >
-                      <Text style={styles.edit}>View more</Text>
-                    </TouchableOpacity>
-      
-                  </View>
-                </View>
-              )}
+        data={items}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <Image
+              source={{ uri: item.image }}
+              style={styles.image}
+              resizeMode="cover"
             />
+
+            <Text style={styles.name}>{item.name}</Text>
+            <Text>{item.category}</Text>
+            <Text>R{item.price}</Text>
+
+            <View style={styles.actions}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("AddEditMenu", { item })}
+              >
+                <Text style={styles.edit}>View more</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      />
     </View>
   );
 }
@@ -100,4 +105,10 @@ const styles = StyleSheet.create({
   },
   edit: { color: colors.primary, fontWeight: "600" },
   delete: { color: colors.danger, fontWeight: "600" },
+  image: {
+    width: "100%",
+    height: 140,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
 });

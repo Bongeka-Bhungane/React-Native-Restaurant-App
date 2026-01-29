@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+    Switch,
+    Image,
 } from "react-native";
 import {
   collection,
@@ -75,29 +77,32 @@ export default function ManageMenuScreen({ navigation }: any) {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.name}>{item.name}</Text>
+            <Image
+              source={{ uri: item.image }}
+              style={styles.image}
+              resizeMode="cover"
+            />
             <Text>{item.category}</Text>
             <Text>R{item.price}</Text>
 
-            <Text
-              style={{
-                color: item.isAvailable ? "green" : colors.danger,
-                marginTop: 4,
-              }}
-            >
-              {item.isAvailable ? "Available" : "Unavailable"}
-            </Text>
+            {/* Availability */}
+            <View style={styles.availabilityRow}>
+              <Text style={{ fontWeight: "600" }}>
+                {item.isAvailable ? "Available" : "Unavailable"}
+              </Text>
+
+              <Switch
+                value={item.isAvailable}
+                onValueChange={() => toggleAvailability(item)}
+                trackColor={{ false: "#ccc", true: colors.primary }}
+              />
+            </View>
 
             <View style={styles.actions}>
               <TouchableOpacity
                 onPress={() => navigation.navigate("AddEditMenu", { item })}
               >
                 <Text style={styles.edit}>Edit</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => toggleAvailability(item)}>
-                <Text style={styles.toggle}>
-                  {item.isAvailable ? "Disable" : "Enable"}
-                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => deleteItem(item.id)}>
@@ -160,5 +165,16 @@ const styles = StyleSheet.create({
   delete: {
     color: colors.danger,
     fontWeight: "600",
+  },
+  availabilityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  image: {
+    width: "100%",
+    height: 140,
+    borderRadius: 10,
+    marginBottom: 10,
   },
 });
