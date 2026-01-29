@@ -33,6 +33,11 @@ function AppTabs() {
           ),
         }}
       />
+      <Stack.Screen
+        name="ViewItem"
+        component={ViewItemScreen}
+        options={{ title: "Item Details" }}
+      />
     </Tab.Navigator>
   );
 }

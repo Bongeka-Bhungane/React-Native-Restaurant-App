@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, ActivityIndicator, StyleSheet, Image, Text, TouchableOpacity } from "react-native";
+import {
+  View,
+  FlatList,
+  ActivityIndicator,
+  StyleSheet,
+  Image,
+  Text,
+  TouchableOpacity,
+} from "react-native";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { colors } from "../theme/colors";
 
-export default function MenuScreen({ navigation }: any) {
+export default function FoodItemCard({ item, onPress }: any) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,26 +52,16 @@ export default function MenuScreen({ navigation }: any) {
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Image
-              source={{ uri: item.image }}
-              style={styles.image}
-              resizeMode="cover"
-            />
-
-            <Text style={styles.name}>{item.name}</Text>
-            <Text>{item.category}</Text>
-            <Text>R{item.price}</Text>
-
-            <View style={styles.actions}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate("AddEditMenu", { item })}
-              >
-                <Text style={styles.edit}>View more</Text>
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.card} onPress={onPress}>
+            <Image source={{ uri: item.image }} style={styles.image} />
+            <View style={styles.info}>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.description}>{item.description}</Text>
+              <Text style={styles.price}>R{item.price}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
       />
     </View>
@@ -91,12 +89,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addText: { color: colors.light, fontWeight: "700" },
-  card: {
-    backgroundColor: colors.light,
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
   name: { fontWeight: "700", fontSize: 16 },
   actions: {
     flexDirection: "row",
@@ -110,5 +102,24 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 10,
     marginBottom: 10,
+  },
+  card: {
+    backgroundColor: colors.light,
+    borderRadius: 14,
+    marginBottom: 14,
+    overflow: "hidden",
+  },
+  info: {
+    padding: 12,
+  },
+  description: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginVertical: 4,
+  },
+  price: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.primary,
   },
 });
