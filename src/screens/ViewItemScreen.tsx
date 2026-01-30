@@ -54,7 +54,6 @@ export default function ViewItemScreen({ route, navigation }: any) {
   const [quantity, setQuantity] = useState(1);
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [selectedSides, setSelectedSides] = useState<string[]>([]);
-  const [selectedDrink, setSelectedDrink] = useState<string | null>(null);
 
   const extrasOptions = ["Extra Sauce", "Extra Cheese", "Extra Toppings"];
   const sideOptions = ["Salad", "Chips", "Pap", "Nuggets"];
@@ -94,7 +93,6 @@ export default function ViewItemScreen({ route, navigation }: any) {
       quantity,
       extras: selectedExtras,
       sides: selectedSides,
-      drink: selectedDrink,
     });
 
     showSuccess(`${item.name} added to cart ☕`);

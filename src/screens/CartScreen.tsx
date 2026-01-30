@@ -15,7 +15,10 @@ export default function CartScreen({ navigation }: any) {
     useCart();
 
   const renderItem = ({ item }: any) => (
-    <View style={styles.itemContainer}>
+    <TouchableOpacity
+      style={styles.itemContainer}
+      onPress={() => navigation.navigate("ViewItem", { item })}
+    >
       <Image source={{ uri: item.image }} style={styles.image} />
       <View style={styles.info}>
         <Text style={styles.name}>{item.name}</Text>
@@ -46,7 +49,7 @@ export default function CartScreen({ navigation }: any) {
       <TouchableOpacity onPress={() => removeFromCart(item.id)}>
         <Ionicons name="trash-outline" size={24} color={colors.danger} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   return (

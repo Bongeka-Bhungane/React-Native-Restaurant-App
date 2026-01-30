@@ -82,7 +82,7 @@ export default function ManageMenuScreen({ navigation }: any) {
               style={styles.image}
               resizeMode="cover"
             />
-            <Text>{item.category}</Text>
+            <Text style={styles.category}>{item.category}</Text>
             <Text>R{item.price}</Text>
 
             {/* Availability */}
@@ -148,6 +148,7 @@ const styles = StyleSheet.create({
   name: {
     fontWeight: "700",
     fontSize: 16,
+    color: colors.dark,
   },
   actions: {
     flexDirection: "row",
@@ -176,5 +177,11 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 10,
     marginBottom: 10,
+  },
+  category: {
+    fontSize: 14,
+    color: colors.dark,
+    marginBottom: 4,
+    fontWeight: "900",
   },
 });
