@@ -10,4 +10,5 @@ export const colors = {
   border: "#E6E1DA",
   danger: "#D9534F",
   white: "#FFFFFF",
+  success: "#5CB85C",
 };

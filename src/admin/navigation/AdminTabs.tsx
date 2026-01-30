@@ -5,6 +5,7 @@ import { colors } from "../../theme/colors";
 import AdminDashboardScreen from "../../admin/screens/AdminDashboardScreen";
 import ManageMenuScreen from "../../admin/screens/ManageMenuScreen";
 import AddAdminScreen from "../../admin/screens/AddAdminScreen";
+import AdminUsersScreen from "../../admin/screens/AdminUsersScreen";
 // import AdminOrdersScreen from "../../admin/screens/AdminOrdersScreen";
 // import AdminProfileScreen from "../../admin/screens/AdminProfileScreen";
 
@@ -36,6 +37,15 @@ export default function AdminTabs() {
         name="Admins"
         component={AddAdminScreen}
         options={{ title: "Admins" }}
+      />
+      <Tab.Screen
+        name="Users"
+        component={AdminUsersScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
       />
 
       {/*
