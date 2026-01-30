@@ -25,6 +25,22 @@ import {
 import { colors } from "../theme/colors";
 import { startPayFastPayment } from "../utils/payfast";
 
+interface OrderItem {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  price: number;
+}
+
+interface Order {
+  id: string;
+  createdAt: any;
+  totalAmount: number;
+  paymentStatus: string;
+  status: string;
+  items: OrderItem[];
+}
 
 export default function UserProfileScreen({ navigation }: any) {
   const [name, setName] = useState("");
@@ -36,7 +52,7 @@ export default function UserProfileScreen({ navigation }: any) {
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
 
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -44,10 +60,8 @@ export default function UserProfileScreen({ navigation }: any) {
         navigation.navigate("Login");
         return;
       }
-
       loadProfile(user.uid);
     });
-
     return unsubscribe;
   }, []);
 
@@ -71,17 +85,38 @@ export default function UserProfileScreen({ navigation }: any) {
   };
 
   const fetchOrders = async (uid: string) => {
-    const ordersRef = collection(db, "orders");
-    const q = query(
-      ordersRef,
-      where("userId", "==", uid),
-      orderBy("createdAt", "desc"),
-    );
+    try {
+      const ordersRef = collection(db, "orders");
 
-    const snap = await getDocs(q);
-    setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      // Remove orderBy if some orders don't have createdAt
+      const q = query(ordersRef, where("userId", "==", uid));
+
+      const snap = await getDocs(q);
+
+      const fetchedOrders: Order[] = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          createdAt: data.createdAt || serverTimestamp(), // fallback
+          totalAmount: data.totalAmount || 0,
+          paymentStatus: data.paymentStatus || "unpaid",
+          status: data.status || "preparing",
+          items: data.items || [],
+        };
+      });
+
+      // Sort client-side by createdAt
+      fetchedOrders.sort((a, b) => {
+        const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+        const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+        return timeB - timeA;
+      });
+
+      setOrders(fetchedOrders);
+    } catch (err) {
+      console.log("Error fetching orders:", err);
+    }
   };
-
 
 
   const handleSave = async () => {
@@ -102,71 +137,83 @@ export default function UserProfileScreen({ navigation }: any) {
         },
         { merge: true },
       );
-
-      alert("Profile updated successfully ☕");
+      Alert.alert("Success", "Profile updated successfully ☕");
     } catch (error) {
       console.log(error);
-      alert("Failed to update profile.");
+      Alert.alert("Error", "Failed to update profile.");
     }
   };
 
-const handlePayOrder = async (order: any) => {
-  try {
-    await startPayFastPayment({
-      amount: order.totalAmount,
-      orderId: order.id,
-    });
+  const handlePayOrder = async (order: any) => {
+    try {
+      await startPayFastPayment({
+        amount: order.totalAmount,
+        orderId: order.id,
+      });
 
-    const orderRef = doc(db, "orders", order.id);
-    await updateDoc(orderRef, {
-      paymentStatus: "paid",
-      paidAt: serverTimestamp(),
-    });
+      const orderRef = doc(db, "orders", order.id);
+      await updateDoc(orderRef, {
+        paymentStatus: "paid",
+        paidAt: serverTimestamp(),
+      });
 
-    Alert.alert("Payment Successful", "Your order has been paid.");
-
-    if (auth.currentUser) {
-      fetchOrders(auth.currentUser.uid); // ✅ FIX
+      Alert.alert("Payment Successful", "Your order has been paid.");
+      if (auth.currentUser) {
+        fetchOrders(auth.currentUser.uid);
+      }
+    } catch (error) {
+      Alert.alert("Payment Error", "Payment could not be completed.");
     }
-  } catch (error) {
-    Alert.alert("Payment Error", "Payment could not be completed.");
-  }
-};
+  };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "preparing":
+        return "red";
+      case "delivering":
+        return "yellow";
+      case "delivered":
+        return "green";
+      default:
+        return colors.text;
+    }
+  };
 
+  const renderOrder = ({ item }: { item: Order }) => (
+    <View style={styles.orderCard}>
+      <Text style={styles.orderDate}>
+        {item.createdAt?.toDate
+          ? item.createdAt.toDate().toLocaleString()
+          : new Date().toLocaleString()}
+      </Text>
+      <Text>Total: R{item.totalAmount.toFixed(2)}</Text>
+      <Text style={{ color: getStatusColor(item.status), fontWeight: "700" }}>
+        Status: {item.status.toUpperCase()}
+      </Text>
+      <Text>Payment: {item.paymentStatus.toUpperCase()}</Text>
+      <Text style={{ marginTop: 6, fontWeight: "700" }}>Items:</Text>
+      {item.items.map((i) => (
+        <Text key={i.id}>
+          • {i.name} ({i.category}) x{i.quantity}
+        </Text>
+      ))}
 
- const renderOrder = ({ item }: any) => (
-   <View style={styles.orderCard}>
-     <Text style={styles.orderId}>Order ID: {item.id}</Text>
-     <Text>
-       Date: {new Date(item.createdAt.seconds * 1000).toLocaleString()}
-     </Text>
-     <Text>Total: R{item.totalAmount}</Text>
-     <Text>Status: {item.paymentStatus}</Text>
-
-     <Text style={styles.orderItems}>Items:</Text>
-     {item.items.map((i: any) => (
-       <Text key={i.id}>
-         • {i.name} x{i.quantity}
-       </Text>
-     ))}
-
-     {item.paymentStatus !== "paid" && (
-       <TouchableOpacity
-         style={styles.payButton}
-         onPress={() => handlePayOrder(item)}
-       >
-         <Text style={styles.payButtonText}>Pay Now</Text>
-       </TouchableOpacity>
-     )}
-   </View>
- );
-
+      {item.paymentStatus !== "paid" && (
+        <TouchableOpacity
+          style={styles.payButton}
+          onPress={() => handlePayOrder(item)}
+        >
+          <Text style={styles.payButtonText}>Pay Now (PayFast)</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.header}>Your Profile</Text>
 
+      {/* Profile Fields */}
       <Text style={styles.label}>Full Name</Text>
       <TextInput style={styles.input} value={name} onChangeText={setName} />
 
@@ -238,35 +285,7 @@ const handlePayOrder = async (order: any) => {
         <FlatList
           data={orders}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.orderCard}>
-              <Text style={styles.orderDate}>
-                {item.createdAt?.toDate().toLocaleString()}
-              </Text>
-
-              <Text>Total: R{item.totalAmount}</Text>
-              <Text>Status: {item.paymentStatus}</Text>
-              <Text>Address: {item.address}</Text>
-              <Text>Card: {item.cardInfo}</Text>
-
-              <Text style={{ marginTop: 6, fontWeight: "700" }}>Items:</Text>
-              {item.items.map((i: any) => (
-                <Text key={i.id}>
-                  • {i.name} x{i.quantity}
-                </Text>
-              ))}
-
-              {/* 🔥 PAYFAST BUTTON */}
-              {item.paymentStatus !== "paid" && (
-                <TouchableOpacity
-                  style={styles.payButton}
-                  onPress={() => handlePayOrder(item)}
-                >
-                  <Text style={styles.payButtonText}>Pay Now (PayFast)</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+          renderItem={renderOrder}
           contentContainerStyle={{ paddingBottom: 80 }}
         />
       )}
@@ -311,8 +330,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 12,
   },
-  orderId: { fontWeight: "700", color: colors.primary },
-  orderItems: { fontWeight: "600", marginTop: 4 },
+  orderDate: { fontWeight: "600", marginBottom: 6 },
   payButton: {
     backgroundColor: colors.primary,
     padding: 12,
@@ -320,9 +338,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  payButtonText: {
-    color: colors.light,
-    fontWeight: "700",
-  },
-  orderDate: { fontWeight: "600", marginBottom: 6 },
+  payButtonText: { color: colors.light, fontWeight: "700" },
 });
