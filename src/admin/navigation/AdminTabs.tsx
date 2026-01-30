@@ -7,7 +7,7 @@ import ManageMenuScreen from "../../admin/screens/ManageMenuScreen";
 import AddAdminScreen from "../../admin/screens/AddAdminScreen";
 import AdminUsersScreen from "../../admin/screens/AdminUsersScreen";
 import AdminOrdersScreen from "../../admin/screens/AdminOrdersScreen";
-// import AdminProfileScreen from "../../admin/screens/AdminProfileScreen";
+import AdminProfileScreen from "../../admin/screens/AdminProfileScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -49,7 +49,7 @@ export default function AdminTabs() {
       />
       
       <Tab.Screen name="Orders" component={AdminOrdersScreen} />
-      {/* <Tab.Screen name="Profile" component={AdminProfileScreen} /> */}
+      <Tab.Screen name="Profile" component={AdminProfileScreen} />
      
     </Tab.Navigator>
   );
