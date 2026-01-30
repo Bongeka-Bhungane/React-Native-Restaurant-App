@@ -91,7 +91,7 @@ export default function AdminDashboardScreen() {
           "🛡️",
           "Registered Admins",
           stats.registeredAdmins,
-          colors.secondary,
+          colors.white,
         )}
         {renderCard("🚫", "Revoked Users", stats.revokedUsers, "red")}
         {renderCard("📦", "Placed Orders", stats.placedOrders, colors.primary)}
