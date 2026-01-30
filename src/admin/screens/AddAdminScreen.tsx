@@ -1,173 +1,140 @@
-import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from "react-native";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../../config/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "../../config/firebase";
 import { colors } from "../../theme/colors";
-import { showSuccess, showError } from "../../utils/toast";
 
-export default function AddAdminScreen({ navigation }: any) {
-  const [name, setName] = useState("");
-  const [surname, setSurname] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function AdminDashboardScreen() {
+  const [stats, setStats] = useState({
+    registeredCustomers: 0,
+    registeredAdmins: 0,
+    revokedUsers: 0,
+    placedOrders: 0,
+    deliveredOrders: 0,
+    canceledOrders: 0,
+    moneyMade: 0,
+  });
 
-  const handleCreateAdmin = async () => {
-    if (!name || !surname || !email || !password) {
-      showError("Please fill in all fields");
-      return;
-    }
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
-    if (!email.endsWith("@thecozycup.com")) {
-      showError("Admin email must be @thecozycup.com");
-      return;
-    }
-
-    if (password.length < 6) {
-      showError("Password must be at least 6 characters");
-      return;
-    }
-
+  const fetchStats = async () => {
     try {
-      setLoading(true);
-
-      // 1️⃣ Create admin in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
+      // ✅ Registered Customers = all users in "users" collection
+      const usersRef = collection(db, "users");
+      const customersSnap = await getDocs(usersRef);
+      const revokedSnap = await getDocs(
+        query(usersRef, where("revoked", "==", true)),
       );
 
-      const uid = userCredential.user.uid;
+      // ✅ Registered Admins = all docs in "admins" collection
+      const adminsRef = collection(db, "admins");
+      const adminsSnap = await getDocs(adminsRef);
 
-      // 2️⃣ Save admin to USERS collection
-      await setDoc(doc(db, "users", uid), {
-        uid,
-        name,
-        surname,
-        email,
-        role: "admin",
-        createdAt: serverTimestamp(),
+      // ✅ Orders stats
+      const ordersRef = collection(db, "orders");
+      const ordersSnap = await getDocs(ordersRef);
+
+      let placed = 0,
+        delivered = 0,
+        canceled = 0,
+        money = 0;
+
+      ordersSnap.docs.forEach((doc) => {
+        const data = doc.data() as any;
+        placed += 1;
+        if (data.status === "delivered") delivered += 1;
+        if (data.status === "canceled") canceled += 1;
+        if (data.paymentStatus === "paid") money += data.totalAmount || 0;
       });
 
-      // 3️⃣ Save admin to ADMINS collection ✅
-      await setDoc(doc(db, "admins", uid), {
-        uid,
-        name,
-        surname,
-        email,
-        isActive: true,
-        createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.uid || null,
+      setStats({
+        registeredCustomers: customersSnap.size,
+        registeredAdmins: adminsSnap.size,
+        revokedUsers: revokedSnap.size,
+        placedOrders: placed,
+        deliveredOrders: delivered,
+        canceledOrders: canceled,
+        moneyMade: money,
       });
-
-      showSuccess("Admin created successfully 👑");
-      navigation.goBack();
-    } catch (error: any) {
-      console.error(error);
-      showError(error.message || "Failed to create admin");
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.log("Error fetching stats:", err);
     }
   };
 
+  const renderCard = (
+    icon: string,
+    title: string,
+    value: number | string,
+    color?: string,
+  ) => (
+    <View style={[styles.card, { borderLeftColor: color || colors.primary }]}>
+      <Text style={styles.cardIcon}>{icon}</Text>
+      <Text style={styles.cardTitle}>{title}</Text>
+      <Text style={styles.cardValue}>{value}</Text>
+    </View>
+  );
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.header}>Add New Admin 👑</Text>
+      <Text style={styles.header}>Admin Dashboard</Text>
 
-      <Text style={styles.label}>Name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Admin name"
-        value={name}
-        onChangeText={setName}
-      />
-
-      <Text style={styles.label}>Surname</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Admin surname"
-        value={surname}
-        onChangeText={setSurname}
-      />
-
-      <Text style={styles.label}>Email</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="admin@thecozycup.com"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
-
-      <Text style={styles.label}>Password</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Minimum 6 characters"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-
-      <TouchableOpacity
-        style={[styles.button, loading && { opacity: 0.7 }]}
-        onPress={handleCreateAdmin}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Creating..." : "Create Admin"}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.grid}>
+        {renderCard(
+          "👥",
+          "Registered Customers",
+          stats.registeredCustomers,
+          colors.primary,
+        )}
+        {renderCard(
+          "🛡️",
+          "Registered Admins",
+          stats.registeredAdmins,
+          colors.white,
+        )}
+        {renderCard("🚫", "Revoked Users", stats.revokedUsers, "red")}
+        {renderCard("📦", "Placed Orders", stats.placedOrders, colors.primary)}
+        {renderCard("✅", "Delivered Orders", stats.deliveredOrders, "green")}
+        {renderCard("❌", "Canceled Orders", stats.canceledOrders, "orange")}
+        {renderCard("💰", "Money Made (R)", stats.moneyMade.toFixed(2), "gold")}
+      </View>
     </ScrollView>
   );
 }
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, backgroundColor: colors.background, padding: 16 },
   header: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "700",
     color: colors.primary,
     marginBottom: 20,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 6,
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
-  input: {
+  card: {
+    width: "48%",
     backgroundColor: colors.light,
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 14,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderLeftWidth: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  button: {
-    backgroundColor: colors.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  buttonText: {
-    color: colors.light,
+  cardIcon: { fontSize: 28, marginBottom: 8 },
+  cardTitle: { fontSize: 14, fontWeight: "600", color: colors.dark },
+  cardValue: {
+    fontSize: 22,
     fontWeight: "700",
-    fontSize: 16,
+    color: colors.text,
+    marginTop: 4,
   },
 });
