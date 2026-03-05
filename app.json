@@ -17,14 +17,20 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/cofeemugicon.jpg",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.bongeka.cozycup"
     },
     "web": {
       "favicon": "./assets/cofeemugicon.jpg"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ee8ada03-b220-43c1-a798-078602f0ae47"
+      }
     }
   }
 }
