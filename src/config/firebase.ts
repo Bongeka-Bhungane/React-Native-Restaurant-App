@@ -13,5 +13,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// ✅ NO persistence — session resets when app reloads
 export const auth = getAuth(app);
+
 export const db = getFirestore(app);

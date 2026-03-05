@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "the-cozy-cup",
-    "slug": "the-cozy-cup",
+    "name": "cozy-cup",
+    "slug": "cozy-cup",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

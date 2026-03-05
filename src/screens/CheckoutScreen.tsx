@@ -1,219 +1,370 @@
-import { useState, useEffect } from "react";
+// src/screens/CheckoutScreen.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
 } from "react-native";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+
+import Screen from "../components/Screen";
+import CozyCard from "../components/CozyCard";
+import CozyInput from "../components/CozyInput";
+import CozyButton from "../components/CozyButton";
+import Checkout from "../components/Checkout";
+
 import { colors } from "../theme/colors";
-import { useCart } from "../context/CartContext";
+import { spacing, radius } from "../theme/spacing";
+
 import { auth, db } from "../config/firebase";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  doc,
-  getDoc,
-} from "firebase/firestore";
+import { useCart } from "../context/CartContext";
 
-type OrderType = "pickup" | "delivery";
-
-interface UserProfile {
-  address?: string;
-  cardName?: string;
-  cardNumber?: string;
-  cardExpiry?: string;
-  cardCvv?: string;
+function money(n: number) {
+  return `R ${Number(n || 0).toFixed(2)}`;
 }
+function safeStr(v: any, fallback = "") {
+  return typeof v === "string" ? v : fallback;
+}
+function safeNum(v: any, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+type OrderType = "delivery" | "pickup";
 
 export default function CheckoutScreen({ navigation }: any) {
   const { cart, getTotal, clearCart } = useCart();
+  const user = auth.currentUser;
 
-  // Order info
+  const total = getTotal();
+  const itemCount = useMemo(
+    () => cart.reduce((sum, x: any) => sum + safeNum(x.quantity || 0), 0),
+    [cart],
+  );
+
+  // ✅ NEW: delivery vs pickup
   const [orderType, setOrderType] = useState<OrderType>("delivery");
+
   const [address, setAddress] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Card info
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
-
-  // Load user profile from Firebase
   useEffect(() => {
-    const loadUserProfile = async () => {
-      if (!auth.currentUser) return;
-
-      const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-      if (userSnap.exists()) {
-        const data = userSnap.data() as UserProfile;
-        if (data.address) setAddress(data.address);
-        if (data.cardName) setCardName(data.cardName);
-        if (data.cardNumber) setCardNumber(data.cardNumber);
-        if (data.cardExpiry) setCardExpiry(data.cardExpiry);
-        if (data.cardCvv) setCardCvv(data.cardCvv);
+    (async () => {
+      if (!user) return;
+      try {
+        setLoadingProfile(true);
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const addr = snap.exists() ? (snap.data()?.address as string) : "";
+        if (addr) setAddress(String(addr));
+      } finally {
+        setLoadingProfile(false);
       }
-    };
-    loadUserProfile();
-  }, []);
+    })();
+  }, [user]);
 
-  const handlePayment = async () => {
-    // Validate required fields
-    if (
-      !cardName ||
-      !cardNumber ||
-      !cardExpiry ||
-      !cardCvv ||
-      (orderType === "delivery" && !address)
-    ) {
-      Alert.alert("Incomplete Info", "Please complete all required fields.");
+  const handleSuccessfulPayment = async () => {
+    if (!user) return;
+
+    if (cart.length === 0) {
+      Alert.alert("Cart empty", "Add items to cart before checkout.");
+      return;
+    }
+
+    // ✅ Address only required for delivery
+    if (orderType === "delivery" && address.trim().length < 5) {
+      Alert.alert("Missing address", "Please enter your delivery address.");
       return;
     }
 
     try {
-      if (auth.currentUser) {
-        await addDoc(collection(db, "orders"), {
-          userId: auth.currentUser.uid,
-          items: cart,
-          totalAmount: getTotal(),
-          orderType,
-          address: orderType === "delivery" ? address : null,
-          status: "preparing",
-          paymentStatus: "paid",
-          createdAt: serverTimestamp(),
-        });
-      }
+      setSaving(true);
+
+      const orderId = `order_${Date.now()}`;
+
+      const safeItems = cart.map((x: any) => ({
+        cartId: safeStr(x.cartId),
+        menuItemId: safeStr(x.menuItemId),
+        name: safeStr(x.name),
+        image: safeStr(x.image),
+
+        basePrice: safeNum(x.basePrice),
+        quantity: safeNum(x.quantity, 1),
+
+        sidesDetailed: Array.isArray(x.sidesDetailed)
+          ? x.sidesDetailed.map((s: any) => ({
+              name: safeStr(s?.name),
+              priceAddOn: safeNum(s?.priceAddOn),
+            }))
+          : [],
+
+        extras: Array.isArray(x.extras)
+          ? x.extras.map((e: any) => ({
+              name: safeStr(e?.name),
+              priceAddOn: safeNum(e?.priceAddOn),
+            }))
+          : [],
+
+        temperature: x.temperature ?? null,
+        temperatureAddOn: safeNum(x.temperatureAddOn),
+
+        notes: safeStr(x.notes).trim(),
+
+        unitTotal: safeNum(x.unitTotal),
+        totalPrice: safeNum(x.totalPrice),
+      }));
+
+      await setDoc(doc(db, "orders", orderId), {
+        orderId,
+        userId: user.uid,
+        email: user.email,
+
+        // ✅ NEW
+        orderType, // "delivery" | "pickup"
+        address: orderType === "delivery" ? address.trim() : "",
+
+        items: safeItems,
+        totalAmount: safeNum(total),
+        currency: "ZAR",
+        paymentProvider: "paystack",
+        paymentStatus: "paid",
+
+        // ✅ same status for both; admin can change later
+        status: "preparing",
+
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
       clearCart();
-      Alert.alert("Success", "Order placed successfully ☕");
-      navigation.navigate("HomeTab");
-    } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Failed to place order");
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+    } catch (err: any) {
+      console.error("Order save failed:", err);
+      Alert.alert("Error", err?.message || "Could not save order.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Checkout ☕</Text>
-
-      {/* Order Type */}
-      <Text style={styles.sectionTitle}>Order Type</Text>
-      <View style={styles.row}>
-        {(["delivery", "pickup"] as OrderType[]).map((type) => (
-          <TouchableOpacity
-            key={type}
-            style={[styles.option, orderType === type && styles.active]}
-            onPress={() => setOrderType(type)}
-          >
-            <Text>{type.toUpperCase()}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Delivery Address */}
-      {orderType === "delivery" && (
-        <>
-          <Text style={styles.sectionTitle}>Delivery Address</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Address"
-            value={address}
-            onChangeText={setAddress}
+  if (!user) {
+    return (
+      <Screen>
+        <CozyCard>
+          <Text style={{ color: colors.muted, fontWeight: "700" }}>
+            Please login to checkout.
+          </Text>
+          <View style={{ height: spacing.md }} />
+          <CozyButton
+            label="Go to Login"
+            onPress={() => navigation.navigate("Login")}
           />
-        </>
-      )}
+        </CozyCard>
+      </Screen>
+    );
+  }
 
-      {/* Order Summary */}
-      <Text style={styles.sectionTitle}>Order Summary</Text>
-      {cart.length === 0 ? (
-        <Text>Your cart is empty</Text>
-      ) : (
-        cart.map((item, index) => (
-          <View key={index} style={styles.cartItem}>
-            <Text>
-              {item.name} x {item.quantity}
-            </Text>
-            <Text>R{(item.price * item.quantity).toFixed(2)}</Text>
+  return (
+    <Screen style={{ paddingTop: spacing.md }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: spacing.xxl }}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Checkout</Text>
+            <Text style={styles.subtitle}>Confirm details & pay</Text>
           </View>
-        ))
-      )}
-      <Text style={styles.total}>Total: R{getTotal().toFixed(2)}</Text>
 
-      {/* Card Info */}
-      <Text style={styles.sectionTitle}>Card Info</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Name on Card"
-        value={cardName}
-        onChangeText={setCardName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Card Number"
-        keyboardType="numeric"
-        value={cardNumber}
-        onChangeText={setCardNumber}
-      />
+          <CozyCard>
+            {/* ✅ NEW: Delivery / Pickup toggle */}
+            <Text style={styles.sectionTitle}>Order type</Text>
 
-      <View style={{ flexDirection: "row" }}>
-        <TextInput
-          style={[styles.input, { flex: 1, marginRight: 8 }]}
-          placeholder="MM/YY"
-          value={cardExpiry}
-          onChangeText={setCardExpiry}
-        />
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="CVV"
-          keyboardType="numeric"
-          value={cardCvv}
-          onChangeText={setCardCvv}
-        />
-      </View>
+            <View style={styles.toggleRow}>
+              <Pressable
+                onPress={() => setOrderType("delivery")}
+                style={[
+                  styles.toggleBtn,
+                  orderType === "delivery"
+                    ? styles.toggleActive
+                    : styles.toggleInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.toggleText,
+                    orderType === "delivery"
+                      ? styles.toggleTextActive
+                      : styles.toggleTextInactive,
+                  ]}
+                >
+                  Delivery
+                </Text>
+              </Pressable>
 
-      <TouchableOpacity style={styles.payButton} onPress={handlePayment}>
-        <Text style={styles.payButtonText}>Pay & Place Order</Text>
-      </TouchableOpacity>
-    </ScrollView>
+              <Pressable
+                onPress={() => setOrderType("pickup")}
+                style={[
+                  styles.toggleBtn,
+                  orderType === "pickup"
+                    ? styles.toggleActive
+                    : styles.toggleInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.toggleText,
+                    orderType === "pickup"
+                      ? styles.toggleTextActive
+                      : styles.toggleTextInactive,
+                  ]}
+                >
+                  Pickup
+                </Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.muted}>
+              {orderType === "pickup"
+                ? "Pickup: you’ll collect at The Cozy Cup."
+                : "Delivery: enter your drop-off address."}
+            </Text>
+
+            <View style={{ height: spacing.lg }} />
+
+            <Text style={styles.sectionTitle}>
+              {orderType === "pickup" ? "Customer details" : "Delivery details"}
+            </Text>
+
+            <CozyInput
+              label="Email"
+              value={user?.email || ""}
+              editable={false}
+            />
+
+            {/* ✅ Address only when delivery */}
+            {orderType === "delivery" && (
+              <>
+                <CozyInput
+                  label="Address"
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="Enter delivery address"
+                />
+                {loadingProfile && (
+                  <Text style={styles.muted}>Loading saved address…</Text>
+                )}
+              </>
+            )}
+
+            <View style={{ height: spacing.lg }} />
+
+            <View style={styles.summaryBox}>
+              <Text style={styles.summaryTitle}>Order summary</Text>
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Items</Text>
+                <Text style={styles.summaryValue}>{itemCount}</Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Total</Text>
+                <Text style={styles.summaryTotal}>{money(total)}</Text>
+              </View>
+            </View>
+
+            <View style={{ height: spacing.lg }} />
+
+            {/* ✅ Paystack button */}
+            <Checkout
+              email={user?.email || "customer@example.com"}
+              totalAmount={total}
+              onSuccess={handleSuccessfulPayment}
+            />
+
+            <CozyButton
+              label="Back to Cart"
+              variant="outline"
+              onPress={() => navigation.goBack()}
+              disabled={saving}
+            />
+          </CozyCard>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.background },
-  header: { fontSize: 24, fontWeight: "700", marginBottom: 16 },
-  sectionTitle: { marginTop: 14, fontWeight: "700" },
-  row: { flexDirection: "row", marginVertical: 8 },
-  option: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
+  header: { alignItems: "center", marginBottom: spacing.md },
+  title: { fontSize: 24, fontWeight: "900", color: colors.text },
+  subtitle: { marginTop: 6, color: colors.muted, fontWeight: "700" },
+
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+
+  muted: { color: colors.muted, fontWeight: "700", marginTop: 8 },
+
+  summaryBox: {
+    padding: spacing.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    alignItems: "center",
-    marginRight: 8,
+    borderColor: colors.border,
+    backgroundColor: "rgba(107, 74, 58, 0.06)",
   },
-  active: { backgroundColor: colors.primary },
-  input: {
-    backgroundColor: colors.light,
-    padding: 12,
-    borderRadius: 10,
-    marginVertical: 6,
-  },
-  total: { fontSize: 18, fontWeight: "700", marginTop: 12 },
-  cartItem: {
+  summaryTitle: { fontWeight: "900", color: colors.text, marginBottom: 10 },
+
+  summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 4,
+    marginTop: 8,
   },
-  payButton: {
-    backgroundColor: colors.primary,
-    padding: 16,
-    borderRadius: 12,
+  summaryLabel: { color: colors.muted, fontWeight: "800" },
+  summaryValue: { color: colors.text, fontWeight: "900" },
+  summaryTotal: { color: colors.primary, fontWeight: "900", fontSize: 18 },
+
+  // ✅ Toggle styling (matches your theme style)
+  toggleRow: {
+    flexDirection: "row",
+    backgroundColor: "rgba(107, 74, 58, 0.08)",
+    borderRadius: radius.xl,
+    padding: 6,
+    gap: 6,
+    marginTop: 6,
+  },
+  toggleBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: radius.xl,
     alignItems: "center",
-    marginTop: 16,
+    justifyContent: "center",
   },
-  payButtonText: { color: colors.light, fontWeight: "700" },
+  toggleActive: {
+    backgroundColor: colors.primary,
+  },
+  toggleInactive: {
+    backgroundColor: "transparent",
+  },
+  toggleText: {
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  toggleTextActive: {
+    color: colors.white,
+  },
+  toggleTextInactive: {
+    color: colors.primary,
+  },
 });

@@ -1,254 +1,243 @@
-import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, Alert, Pressable } from "react-native";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../config/firebase";
-import { colors } from "../theme/colors";
-import { showSuccess, showError } from "../utils/toast";
 
-type Role = "customer" | "admin";
+import Screen from "../components/Screen";
+import CozyCard from "../components/CozyCard";
+import CozyButton from "../components/CozyButton";
+import CozyInput from "../components/CozyInput";
+import { colors } from "../theme/colors";
+import { spacing, radius } from "../theme/spacing";
+import { auth, db } from "../config/firebase";
+
+type LoginMode = "user" | "admin";
+
+function isCozyCupAdminEmail(email: string) {
+  return email.trim().toLowerCase().endsWith("@thecozycup.com");
+}
 
 export default function LoginScreen({ navigation }: any) {
+  const [mode, setMode] = useState<LoginMode>("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("customer");
-  const [revoked, setRevoked] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+
+  const canSubmit = useMemo(() => {
+    return email.trim().length > 3 && password.length >= 6 && !loading;
+  }, [email, password, loading]);
 
   const handleLogin = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      Alert.alert("Missing email", "Please enter your email address.");
+      return;
+    }
+    if (!password) {
+      Alert.alert("Missing password", "Please enter your password.");
+      return;
+    }
+
+    if (mode === "admin" && !isCozyCupAdminEmail(cleanEmail)) {
+      Alert.alert(
+        "Admin login blocked",
+        "Admin accounts must use an email ending with @thecozycup.com",
+      );
+      return;
+    }
+
     try {
-      setRevoked(false);
+      setLoading(true);
 
-      // 1️⃣ Firebase Auth login
-      const res = await signInWithEmailAndPassword(auth, email, password);
-      const uid = res.user.uid;
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
 
-      // 2️⃣ Fetch profiles
-      const userSnap = await getDoc(doc(db, "users", uid));
-      const adminSnap = await getDoc(doc(db, "admins", uid));
+      const snap = await getDoc(doc(db, "users", cred.user.uid));
+      const role = snap.exists() ? snap.data()?.role : undefined;
 
-      let profile: any = null;
-      let profileRole: Role | null = null;
+      // ✅ Admin mode → go to AdminTabs -> Dashboard
+      if (mode === "admin") {
+        if (role !== "admin") {
+          await signOut(auth);
+          Alert.alert("Not an admin", "This account is not an admin yet.");
+          return;
+        }
 
-      if (userSnap.exists()) {
-        profile = userSnap.data();
-        profileRole = "customer";
-      }
-
-      if (adminSnap.exists()) {
-        profile = adminSnap.data();
-        profileRole = "admin";
-      }
-
-      // 3️⃣ Profile existence check
-      if (!profile) {
-        await signOut(auth);
-        showError("Account profile not found");
+        navigation.reset({
+          index: 0,
+          routes: [
+            {
+              name: "AdminTabs",
+              params: { screen: "Dashboard" }, // 👈 go to Dashboard tab
+            },
+          ],
+        });
         return;
       }
 
-      // 4️⃣ Revoked account check 🔒
-      if (profile.isActive === false) {
-        await signOut(auth);
-        setRevoked(true);
-        return;
-      }
-
-      // 5️⃣ Role validation
-      if (role !== profileRole) {
-        await signOut(auth);
-        showError(
-          role === "admin" ? "Admin access denied" : "Customer access denied",
-        );
-        return;
-      }
-
-      // 6️⃣ Navigate
+      // ✅ User mode
+      // If admin accidentally logs in with user toggle, still route them to Dashboard
       if (role === "admin") {
-        showSuccess("Welcome Admin ☕");
-        navigation.replace("AdminApp");
-      } else {
-        showSuccess("Logged in successfully ☕");
-        navigation.replace("App", { screen: "HomeTab" });
+        navigation.reset({
+          index: 0,
+          routes: [
+            {
+              name: "AdminTabs",
+              params: { screen: "Dashboard" },
+            },
+          ],
+        });
+        return;
       }
-    } catch (error) {
-      console.log(error);
-      showError("Invalid login details");
+
+      // ✅ Normal user → UserTabs -> Home
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: "UserTabs",
+            params: { screen: "Home" }, // 👈 go to Home tab
+          },
+        ],
+      });
+    } catch (err: any) {
+      console.log("🔥 Login error:", err?.code, err?.message);
+
+      const msg = err?.message?.includes("auth/invalid-credential")
+        ? "Invalid email or password."
+        : err?.message || "Login failed.";
+      Alert.alert("Login failed", msg);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back ☕</Text>
-
-      {/* 🚨 Revoked Alert */}
-      {revoked && (
-        <View style={styles.revokedBox}>
-          <Text style={styles.revokedText}>
-            ⚠️ This account has been revoked. Please contact support.
-          </Text>
-          <TouchableOpacity
-            style={styles.revokedButton}
-            onPress={() => navigation.navigate("Contact")}
-          >
-            <Text style={styles.revokedButtonText}>Contact Support</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Role Selector */}
-      <View style={styles.roleContainer}>
-        <TouchableOpacity
-          style={[styles.roleButton, role === "customer" && styles.roleActive]}
-          onPress={() => setRole("customer")}
-        >
-          <Text style={styles.roleText}>Customer</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.roleButton, role === "admin" && styles.roleActive]}
-          onPress={() => setRole("admin")}
-        >
-          <Text style={styles.roleText}>Admin</Text>
-        </TouchableOpacity>
+    <Screen>
+      <View style={styles.header}>
+        <Text style={styles.title}>Login</Text>
+        <Text style={styles.subtitle}>Welcome back to The Cozy Cup ☕</Text>
       </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={(text) => {
-          setEmail(text);
-          setRevoked(false);
-        }}
-      />
+      <CozyCard>
+        <View style={styles.toggleRow}>
+          <Pressable
+            onPress={() => setMode("user")}
+            style={[
+              styles.toggleBtn,
+              mode === "user" ? styles.toggleActive : styles.toggleInactive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                mode === "user"
+                  ? styles.toggleTextActive
+                  : styles.toggleTextInactive,
+              ]}
+            >
+              User
+            </Text>
+          </Pressable>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={(text) => {
-          setPassword(text);
-          setRevoked(false);
-        }}
-      />
+          <Pressable
+            onPress={() => setMode("admin")}
+            style={[
+              styles.toggleBtn,
+              mode === "admin" ? styles.toggleActive : styles.toggleInactive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                mode === "admin"
+                  ? styles.toggleTextActive
+                  : styles.toggleTextInactive,
+              ]}
+            >
+              Admin
+            </Text>
+          </Pressable>
+        </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>
-          Login as {role === "admin" ? "Admin" : "Customer"}
-        </Text>
-      </TouchableOpacity>
+        {mode === "admin" && (
+          <Text style={styles.adminHint}>
+            Admin emails must end with{" "}
+            <Text style={{ fontWeight: "900" }}>@thecozycup.com</Text>
+          </Text>
+        )}
 
-      <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-        <Text style={styles.link}>Create a new account</Text>
-      </TouchableOpacity>
-    </View>
+        <View style={{ height: spacing.md }} />
+
+        <CozyInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="you@example.com"
+        />
+
+        <CozyInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholder="••••••••"
+        />
+
+        <View style={{ height: spacing.md }} />
+
+        <CozyButton
+          label={mode === "admin" ? "Login as Admin" : "Login"}
+          onPress={handleLogin}
+          loading={loading}
+          disabled={!canSubmit}
+        />
+
+        <View style={{ height: spacing.md }} />
+
+        <CozyButton
+          label="Create a user account"
+          variant="outline"
+          onPress={() => navigation.navigate("Register")}
+          disabled={loading}
+        />
+      </CozyCard>
+    </Screen>
   );
 }
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  container: {
+  header: { marginBottom: spacing.lg, alignItems: "center" },
+  title: { fontSize: 26, fontWeight: "900", color: colors.text },
+  subtitle: { marginTop: 6, color: colors.muted, fontWeight: "700" },
+
+  toggleRow: {
+    flexDirection: "row",
+    backgroundColor: "rgba(107, 74, 58, 0.08)",
+    borderRadius: radius.xl,
+    padding: 6,
+    gap: 6,
+  },
+  toggleBtn: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: 24,
+    height: 44,
+    borderRadius: radius.xl,
+    alignItems: "center",
     justifyContent: "center",
   },
+  toggleActive: { backgroundColor: colors.primary },
+  toggleInactive: { backgroundColor: "transparent" },
+  toggleText: { fontSize: 13, fontWeight: "900" },
+  toggleTextActive: { color: colors.white },
+  toggleTextInactive: { color: colors.primary },
 
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: 20,
-    textAlign: "center",
-  },
-
-  revokedBox: {
-    backgroundColor: "#FDECEA",
-    borderColor: "#F5C2C7",
-    borderWidth: 1,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-  },
-
-  revokedText: {
-    color: "#B42318",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-
-  input: {
-    backgroundColor: colors.light,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    marginBottom: 12,
-    color: colors.text,
-  },
-
-  button: {
-    backgroundColor: colors.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-  },
-
-  buttonText: {
-    color: colors.light,
-    fontWeight: "600",
-    fontSize: 16,
-  },
-
-  link: {
-    color: colors.accent,
-    textAlign: "center",
-    marginTop: 16,
-  },
-
-  roleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-
-  roleButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    marginHorizontal: 4,
-  },
-
-  roleActive: {
-    backgroundColor: colors.primary,
-  },
-
-  roleText: {
-    color: colors.text,
-    fontWeight: "600",
-  },
-  revokedButton: {  
-    marginTop: 10,
-    backgroundColor: colors.danger,
-    padding: 10,  
-    borderRadius: 8,
-  },
-  revokedButtonText: {
-    color: colors.white,
+  adminHint: {
+    marginTop: spacing.sm,
+    color: colors.muted,
     fontWeight: "700",
-    textAlign: "center",
-  }
+    fontSize: 12,
+  },
 });
