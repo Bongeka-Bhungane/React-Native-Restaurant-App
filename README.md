@@ -1,3 +1,5 @@
+<img src="https://socialify.git.ci/Bongeka-Bhungane/React-Native-Restaurant-App/image?description=1&font=Raleway&language=1&name=1&owner=1&pattern=Circuit+Board&theme=Light" alt="React-Native-Restaurant-App" width="640" height="320" />
+
 # The Cozy Cup – React Native Restaurant App
 
 * The Cozy Cup is a mobile restaurant ordering application built with React Native and Firebase.
