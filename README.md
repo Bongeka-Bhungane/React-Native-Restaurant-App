@@ -198,9 +198,15 @@ npx expo start
 
 # Admin Access
 
-### Admins must have an email ending with:
-
-* @thecozypu.com
+### Admin login credintials:
+* email
+```
+thando@thecozycup.com
+```
+* password
+  ```
+  admin12345
+  ```
 
 * Admins can be added through the Admin Add Admin page.
 
